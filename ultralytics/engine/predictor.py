@@ -120,7 +120,10 @@ class BasePredictor:
         not_tensor = not isinstance(im, torch.Tensor)
         if not_tensor:
             im = np.stack(self.pre_transform(im))
-            im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+            ### image transform
+            im = np.split(im, im.shape[-1], axis=-1)
+            im = np.concatenate(im[2::-1] + im[3:], axis=-1)
+            im = im.transpose((0, 3, 1, 2))  # BHWC to BCHW, (n, 3, h, w)
             im = np.ascontiguousarray(im)  # contiguous
             im = torch.from_numpy(im)
 
@@ -259,7 +262,9 @@ class BasePredictor:
 
             # Warmup model
             if not self.done_warmup:
-                self.model.warmup(imgsz=(1 if self.model.pt or self.model.triton else self.dataset.bs, 3, *self.imgsz))
+                state_dict = self.model.state_dict()
+                ch = state_dict[next(iter(state_dict))].shape[1]
+                self.model.warmup(imgsz=(1 if self.model.pt or self.model.triton else self.dataset.bs, ch, *self.imgsz))
                 self.done_warmup = True
 
             self.seen, self.windows, self.batch = 0, [], None
@@ -364,9 +369,10 @@ class BasePredictor:
 
     def save_preds(self, vid_cap, idx, save_path):
         """Save video predictions as mp4 at specified path."""
-        im0 = self.plotted_img
+        im0 = self.plotted_img[..., :3]
         # Save imgs
         if self.dataset.mode == "image":
+            ### save 3 channels
             cv2.imwrite(save_path, im0)
         else:  # 'video' or 'stream'
             frames_path = f'{save_path.split(".", 1)[0]}_frames/'

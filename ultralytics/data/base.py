@@ -154,7 +154,14 @@ class BaseDataset(Dataset):
                     Path(fn).unlink(missing_ok=True)
                     im = cv2.imread(f)  # BGR
             else:  # read image
-                im = cv2.imread(f)  # BGR
+                im = cv2.imread(f, cv2.IMREAD_UNCHANGED)  # BGR
+                # shrink mask 4x4
+                #mask = im[..., 3]
+                #h, w = mask.shape
+                #mask = cv2.resize(mask, (w//4, h//4), interpolation=cv2.INTER_AREA)
+                #mask = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY)[1]
+                #mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+                #im[..., 3] = mask
             if im is None:
                 raise FileNotFoundError(f"Image Not Found {f}")
 

@@ -335,6 +335,13 @@ class LoadImages:
                 self._new_video(path)
                 success, im0 = self.cap.read()
 
+            #h, w, _ = im0.shape
+            #im_4x4 = cv2.resize(im0, (w//4, h//4), interpolation=cv2.INTER_AREA)
+            #motion_mask = self.motion_detector.apply(im_4x4)
+            #motion_mask = cv2.resize(motion_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+            motion_mask = self.motion_detector.apply(im0)
+            im0 = np.concatenate([im0, motion_mask[..., None]], axis=2)
+
             self.frame += 1
             # im0 = self._cv2_rotate(im0)  # for use if cv2 autorotation is False
             s = f"video {self.count + 1}/{self.nf} ({self.frame}/{self.frames}) {path}: "
@@ -342,7 +349,8 @@ class LoadImages:
         else:
             # Read image
             self.count += 1
-            im0 = cv2.imread(path)  # BGR
+            ### load for prediction
+            im0 = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # BGR
             if im0 is None:
                 raise FileNotFoundError(f"Image Not Found {path}")
             s = f"image {self.count}/{self.nf} {path}: "
@@ -354,6 +362,7 @@ class LoadImages:
         self.frame = 0
         self.cap = cv2.VideoCapture(path)
         self.frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT) / self.vid_stride)
+        self.motion_detector = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
 
     def __len__(self):
         """Returns the number of files in the object."""

@@ -431,7 +431,7 @@ class RandomPerspective:
             if self.perspective:
                 img = cv2.warpPerspective(img, M, dsize=self.size, borderValue=(114, 114, 114))
             else:  # affine
-                img = cv2.warpAffine(img, M[:2], dsize=self.size, borderValue=(114, 114, 114))
+                img = cv2.warpAffine(img, M[:2], dsize=self.size, flags=cv2.INTER_NEAREST, borderValue=(114, 114, 114))
         return img, M, s
 
     def apply_bboxes(self, bboxes, M):
@@ -611,6 +611,8 @@ class RandomHSV:
         img = labels["img"]
         if self.hgain or self.sgain or self.vgain:
             r = np.random.uniform(-1, 1, 3) * [self.hgain, self.sgain, self.vgain] + 1  # random gains
+            if img.shape[2] > 3:
+                alpha = img[:, :, 3:].copy()
             hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
             dtype = img.dtype  # uint8
 
@@ -621,8 +623,30 @@ class RandomHSV:
 
             im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
             cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
+            if img.shape[2] > 3:
+                img[:, :, 3:] = alpha
+
         return labels
 
+
+class GaussNoise:
+    def __init__(self, std=5, reset_count=1000):
+        self.std = std
+        self.reset_count = reset_count
+        self.counter = 0
+        self.noise = None
+
+    def __call__(self, labels):
+        img = labels['img']
+
+        if (self.noise is None) or (self.counter > self.reset_count):
+            self.noise = np.round(np.random.normal(loc=0, scale=self.std, size=[2592, 2592, 3])).astype(np.int16)
+            self.counter = 0
+        h, w = img.shape[:2]
+        img[..., :3] = np.clip(img[..., :3].astype(np.int16) + self.noise[:h, :w, :], 0, 255).astype(np.uint8)
+        self.counter += 1
+
+        return labels
 
 class RandomFlip:
     """
@@ -948,7 +972,10 @@ class Format:
         """Format the image for YOLO from Numpy array to PyTorch tensor."""
         if len(img.shape) < 3:
             img = np.expand_dims(img, -1)
-        img = np.ascontiguousarray(img.transpose(2, 0, 1)[::-1])
+        ### BGR to RGB
+        img = np.split(img, img.shape[-1], axis=-1)
+        img = np.concatenate(img[2::-1] + img[3:], axis=-1)
+        img = np.ascontiguousarray(img.transpose(2, 0, 1))
         img = torch.from_numpy(img)
         return img
 
@@ -995,8 +1022,9 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         [
             pre_transform,
             MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
-            Albumentations(p=1.0),
+            #Albumentations(p=1.0),
             RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
+            GaussNoise(),
             RandomFlip(direction="vertical", p=hyp.flipud),
             RandomFlip(direction="horizontal", p=hyp.fliplr, flip_idx=flip_idx),
         ]

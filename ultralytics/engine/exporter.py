@@ -201,7 +201,9 @@ class Exporter:
             raise SystemError("Edge TPU export only supported on Linux. See https://coral.ai/docs/edgetpu/compiler/")
 
         # Input
-        im = torch.zeros(self.args.batch, 3, *self.imgsz).to(self.device)
+        state_dict = model.state_dict()
+        ch = state_dict[next(iter(state_dict))].shape[1]
+        im = torch.zeros(self.args.batch, ch, *self.imgsz).to(self.device)
         file = Path(
             getattr(model, "pt_path", None) or getattr(model, "yaml_file", None) or model.yaml.get("yaml_file", "")
         )
@@ -227,8 +229,9 @@ class Exporter:
         y = None
         for _ in range(2):
             y = model(im)  # dry runs
-        if self.args.half and (engine or onnx) and self.device.type != "cpu":
+        if self.args.half and (engine or onnx or jit) and self.device.type != "cpu":
             im, model = im.half(), model.half()  # to FP16
+            print('!!! half')
 
         # Filter warnings
         warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)  # suppress TracerWarning
