@@ -154,6 +154,7 @@ class BaseValidator:
             self.dataloader = self.dataloader or self.get_dataloader(self.data.get(self.args.split), self.args.batch)
 
             model.eval()
+            # Get number of input channels from model state dict (gsa)
             state_dict = model.state_dict()
             ch = state_dict[next(iter(state_dict))].shape[1]
             model.warmup(imgsz=(1 if pt else self.args.batch, ch, imgsz, imgsz))  # warmup

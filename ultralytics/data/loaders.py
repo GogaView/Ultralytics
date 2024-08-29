@@ -345,13 +345,10 @@ class LoadImagesAndVideos:
                     success, im0 = self.cap.retrieve()
                     if success:
 
-                        #h, w, _ = im0.shape
-                        #im_4x4 = cv2.resize(im0, (w//4, h//4), interpolation=cv2.INTER_AREA)
-                        #motion_mask = self.motion_detector.apply(im_4x4)
-                        #motion_mask = cv2.resize(motion_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+                        # Used to read video file in predict mode. (gsa)
+                        # Apply motion detector to new frame and add motion detector results as 4th channel.
                         motion_mask = self.motion_detector.apply(im0)
                         im0 = np.concatenate([im0, motion_mask[..., None]], axis=2)
-
                         self.frame += 1
                         paths.append(path)
                         imgs.append(im0)
@@ -368,6 +365,7 @@ class LoadImagesAndVideos:
                         self._new_video(self.files[self.count])
             else:
                 self.mode = "image"
+                # Read image in predict mode. IMREAD_UNCHANGED required to read 4th channel. (gsa)
                 im0 = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # BGR
                 if im0 is None:
                     LOGGER.warning(f"WARNING ⚠️ Image Read Error {path}")
@@ -389,6 +387,7 @@ class LoadImagesAndVideos:
         if not self.cap.isOpened():
             raise FileNotFoundError(f"Failed to open video {path}")
         self.frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT) / self.vid_stride)
+        # Create motion detector for video file (gsa)
         self.motion_detector = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
 
     def __len__(self):

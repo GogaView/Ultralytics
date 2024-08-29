@@ -1073,7 +1073,7 @@ class RandomPerspective:
             if self.perspective:
                 img = cv2.warpPerspective(img, M, dsize=self.size, borderValue=(114, 114, 114))
             else:  # affine
-                img = cv2.warpAffine(img, M[:2], dsize=self.size, flags=cv2.INTER_NEAREST, borderValue=(114, 114, 114))
+                img = cv2.warpAffine(img, M[:2], dsize=self.size, borderValue=(114, 114, 114))
         return img, M, s
 
     def apply_bboxes(self, bboxes, M):
@@ -1365,6 +1365,7 @@ class RandomHSV:
         img = labels["img"]
         if self.hgain or self.sgain or self.vgain:
             r = np.random.uniform(-1, 1, 3) * [self.hgain, self.sgain, self.vgain] + 1  # random gains
+            # Save MD channel (gsa)
             if img.shape[2] > 3:
                 alpha = img[:, :, 3:].copy()
             hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
@@ -1377,13 +1378,20 @@ class RandomHSV:
 
             im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
             cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
+            # Restore MD channel (gsa)
             if img.shape[2] > 3:
                 img[:, :, 3:] = alpha
 
         return labels
 
 
+# Gaussian noise augmentation (gsa)
 class GaussNoise:
+    """
+    Adds Gaussian noise to each pixel of the image. The noise value for each pixel is chosen independently.
+    Since the calculation of the normal distribution is quite slow, the same noise is applied to a series of
+    images (by default to 1000).
+    """
     def __init__(self, std=5, reset_count=1000):
         self.std = std
         self.reset_count = reset_count
@@ -2106,7 +2114,7 @@ class Format:
         """
         if len(img.shape) < 3:
             img = np.expand_dims(img, -1)
-        ### BGR to RGB
+        # BGR-MD to RGB-MD (gsa)
         img = np.split(img, img.shape[-1], axis=-1)
         img = np.concatenate((img[2::-1] if random.uniform(0, 1) > self.bgr else img[:3]) + img[3:], axis=-1)
         img = np.ascontiguousarray(img.transpose(2, 0, 1))
@@ -2329,6 +2337,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         elif flip_idx and (len(flip_idx) != kpt_shape[0]):
             raise ValueError(f"data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}")
 
+    # Include GaussNoise and exclude Albumentations (since it works with 3-channel images) (gsa)
     return Compose(
         [
             pre_transform,

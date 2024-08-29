@@ -504,8 +504,8 @@ class Results(SimpleClass):
         pred_probs, show_probs = self.probs, probs
         annotator = Annotator(
             deepcopy(self.orig_img if img is None else img),
-            3, #line_width,
-            24, #font_size,
+            line_width,
+            font_size,
             font,
             pil or (pred_probs is not None and show_probs),  # Classify tasks default to pil=True
             example=names,

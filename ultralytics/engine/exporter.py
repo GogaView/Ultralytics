@@ -229,6 +229,7 @@ class Exporter:
                 f"Using default 'data={self.args.data}'."
             )
         # Input
+        # Get number of input channels from model state dict (gsa)
         state_dict = model.state_dict()
         ch = state_dict[next(iter(state_dict))].shape[1]
         im = torch.zeros(self.args.batch, ch, *self.imgsz).to(self.device)
@@ -257,9 +258,9 @@ class Exporter:
         y = None
         for _ in range(2):
             y = model(im)  # dry runs
+        # engine and jit also support half mode (gsa)
         if self.args.half and (engine or onnx or jit) and self.device.type != "cpu":
             im, model = im.half(), model.half()  # to FP16
-            print('!!! half')
 
         # Filter warnings
         warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)  # suppress TracerWarning

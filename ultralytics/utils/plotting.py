@@ -989,6 +989,7 @@ def plot_images(
         images *= 255  # de-normalise (optional)
 
     # Build Image
+    # Fix mosaic number of channels (gsa)
     mosaic = np.full((int(ns * h), int(ns * w), images.shape[1]), 255, dtype=np.uint8)  # init
     for i in range(bs):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
@@ -1085,6 +1086,7 @@ def plot_images(
                 annotator.fromarray(im)
     if not save:
         return np.asarray(annotator.im)
+    # Convert to RGB added to remove 4th channel (gsa)
     annotator.im.convert('RGB').save(fname)  # save
     if on_plot:
         on_plot(fname)

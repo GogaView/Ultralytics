@@ -122,7 +122,8 @@ class BasePredictor:
         not_tensor = not isinstance(im, torch.Tensor)
         if not_tensor:
             im = np.stack(self.pre_transform(im))
-            ### image transform
+            # Convert images to tensor in predict mode (gsa)
+            # BGR-MD to RGB-MD fix
             im = np.split(im, im.shape[-1], axis=-1)
             im = np.concatenate(im[2::-1] + im[3:], axis=-1)
             im = im.transpose((0, 3, 1, 2))  # BHWC to BCHW, (n, 3, h, w)
@@ -234,6 +235,7 @@ class BasePredictor:
 
             # Warmup model
             if not self.done_warmup:
+                # Get number of input channels from model state dict (gsa)
                 state_dict = self.model.state_dict()
                 ch = state_dict[next(iter(state_dict))].shape[1]
                 self.model.warmup(imgsz=(1 if self.model.pt or self.model.triton else self.dataset.bs, ch, *self.imgsz))
@@ -362,6 +364,7 @@ class BasePredictor:
 
     def save_predicted_images(self, save_path="", frame=0):
         """Save video predictions as mp4 at specified path."""
+        # Exclude MD channel in images with recognition samples (gsa)
         im = self.plotted_img[..., :3]
 
         # Save videos and streams
