@@ -1410,6 +1410,66 @@ class GaussNoise:
 
         return labels
 
+
+class ZeroMD:
+    """
+    Zero motion detection channel with some probability.
+    """
+    def __init__(self, p=.2):
+        self.p = p
+
+    def __call__(self, labels):
+        if random.random() < self.p:
+            labels['img'][..., 3] = 0
+        return labels
+
+
+class AircraftBlur:
+    """
+    Augmentation with blurring of airplanes, which can be visible under some
+    lighting conditions on airplanes on landing.
+    Augmentation is applied with probability p, only to airplanes with a width
+    greater than min_width.
+    A motion detector is used to separate airplanes from the background.
+    Blur with parameter blur_kernel is applied.
+    """
+    def __init__(self, p=.7):
+        self.p = p
+        self.min_width = 100
+        self.blur_kernel = (15, 5)
+
+    def __call__(self, labels):
+        img = labels['img']
+        objects = np.reshape(labels['cls'], -1)
+        instances = labels['instances']
+
+        # Convert to xyxy denormalized bboxes
+        instances.convert_bbox('xyxy')
+        h, w, _ = img.shape
+        instances.denormalize(w, h)
+        bboxes = np.copy(instances.bboxes).astype(int)
+
+        # Kernel for motion detection mask dilation
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        for object, bbox in zip(objects, bboxes):
+            # Check object type and size
+            if (object == 0) and (bbox[2] - bbox[0] > self.min_width) and (random.random() < self.p):
+                # Get part of image with selected object
+                x1, x2 = max(bbox[0] - 5, 0), min(bbox[2] + 5, w-1)
+                y1, y2 = max(bbox[1] - 2, 0), min(bbox[3] + 2, h-1)
+                img1 = img[y1:y2, x1:x2, :3]
+                mask1 = img[y1:y2, x1:x2, 3]
+                # Apply blur
+                img1blured = cv2.blur(img1, self.blur_kernel)
+                # Dilate mask, apply_mask have values of [0, 1] only
+                apply_mask = cv2.dilate(mask1, dilate_kernel)[..., None] // 255
+                # Apply blur only to mask area
+                img1result = img1blured * apply_mask + img1 * (1 - apply_mask)
+                img[y1:y2, x1:x2, :3] = img1result
+
+        return labels
+
+
 class RandomFlip:
     """
     Applies a random horizontal or vertical flip to an image with a given probability.
@@ -2337,7 +2397,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         elif flip_idx and (len(flip_idx) != kpt_shape[0]):
             raise ValueError(f"data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}")
 
-    # Include GaussNoise and exclude Albumentations (since it works with 3-channel images) (gsa)
+    # Include GaussNoise, ZeroMD and exclude Albumentations (since it works with 3-channel images) (gsa)
     return Compose(
         [
             pre_transform,
@@ -2345,6 +2405,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
             #Albumentations(p=1.0),
             RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
             GaussNoise(),
+            ZeroMD(),
             RandomFlip(direction="vertical", p=hyp.flipud),
             RandomFlip(direction="horizontal", p=hyp.fliplr, flip_idx=flip_idx),
         ]
