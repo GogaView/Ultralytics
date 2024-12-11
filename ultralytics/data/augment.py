@@ -1419,7 +1419,7 @@ class ZeroMD:
         self.p = p
 
     def __call__(self, labels):
-        if random.random() < self.p:
+        if labels['img'].shape[2] >= 4 and random.random() < self.p:
             labels['img'][..., 3] = 0
         return labels
 
@@ -2418,7 +2418,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         elif flip_idx and (len(flip_idx) != kpt_shape[0]):
             raise ValueError(f"data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}")
 
-    # Include GaussNoise, ZeroMD and exclude Albumentations (since it works with 3-channel images) (gsa)
+    # Include GaussNoise and exclude Albumentations (since it works with 3-channel images) (gsa)
     return Compose(
         [
             pre_transform,
@@ -2426,7 +2426,6 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
             #Albumentations(p=1.0),
             RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
             GaussNoise(),
-            ZeroMD(),
             RandomFlip(direction="vertical", p=hyp.flipud),
             RandomFlip(direction="horizontal", p=hyp.fliplr, flip_idx=flip_idx),
         ]

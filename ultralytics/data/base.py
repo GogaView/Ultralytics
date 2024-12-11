@@ -162,6 +162,7 @@ class BaseDataset(Dataset):
             else:  # read image
                 # Used to read images in train mode. IMREAD_UNCHANGED required to read 4th channel. (gsa)
                 im = cv2.imread(f, cv2.IMREAD_UNCHANGED)  # BGR
+                #im = cv2.imread(f)
             if im is None:
                 raise FileNotFoundError(f"Image Not Found {f}")
 
