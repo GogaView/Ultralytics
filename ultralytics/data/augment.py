@@ -2050,6 +2050,7 @@ class Format:
         mask_overlap=True,
         batch_idx=True,
         bgr=0.0,
+        md=True,
     ):
         """
         Initializes the Format class with given parameters for image and instance annotation formatting.
@@ -2093,6 +2094,7 @@ class Format:
         self.mask_overlap = mask_overlap
         self.batch_idx = batch_idx  # keep the batch indexes
         self.bgr = bgr
+        self.md = md
 
     def __call__(self, labels):
         """
@@ -2190,6 +2192,9 @@ class Format:
         # BGR-MD to RGB-MD (gsa)
         img = np.split(img, img.shape[-1], axis=-1)
         img = np.concatenate((img[2::-1] if random.uniform(0, 1) > self.bgr else img[:3]) + img[3:], axis=-1)
+        # Drop MD channel if required (gsa)
+        if not self.md and img.shape[2] > 3:
+            img = img[:, :, :3]
         img = np.ascontiguousarray(img.transpose(2, 0, 1))
         img = torch.from_numpy(img)
         return img

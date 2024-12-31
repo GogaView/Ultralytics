@@ -428,7 +428,6 @@ class LoadImagesAndVideos:
                 else:
                     # Read image in predict mode. IMREAD_UNCHANGED required to read 4th channel. (gsa)
                     im0 = imread(path, cv2.IMREAD_UNCHANGED)  # BGR
-                    #im0 = imread(path)  # BGR
                 if im0 is None:
                     LOGGER.warning(f"WARNING ⚠️ Image Read Error {path}")
                 else:
