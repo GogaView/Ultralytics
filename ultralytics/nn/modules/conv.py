@@ -330,3 +330,17 @@ class Concat(nn.Module):
     def forward(self, x):
         """Forward pass for the YOLOv8 mask Proto module."""
         return torch.cat(x, self.d)
+
+
+# Special module to get motion detection layer from original image tensor
+# and reduce it in size by pool_kernel times (gsa)
+class PoolConcat(nn.Module):
+    def __init__(self, pool_kernel):
+        super().__init__()
+        self.pool = nn.MaxPool2d(pool_kernel)
+
+    def forward(self, x_list):
+        x, x0 = x_list
+        md = torch.unsqueeze(x0[:, 3, :, :], 1)
+        md = self.pool(md)
+        return torch.concat([x, md], 1)
